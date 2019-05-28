@@ -1,0 +1,22 @@
+{
+  "name": "michaelzeising/php-array-facade",
+  "description": "",
+  "version": "0.0.1",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "MichaelZeising\\Language\\": "src"
+    },
+    "files": [
+      "src/util.php"
+    ],
+    "classmap": [
+      "src/"
+    ]
+  },
+  "require": {
+    "php": "^7.2",
+    "ext-json": "*",
+    "jjware/php-optional": "1.0.1"
+  }
+}
