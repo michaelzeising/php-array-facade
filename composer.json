@@ -1,8 +1,11 @@
 {
   "name": "michaelzeising/php-array-facade",
-  "description": "",
-  "version": "1.0.0",
+  "description": "Wraps PHP's built-in array functions, extends them and supports a function, object-oriented style.",
   "license": "MIT",
+  "authors": [{
+    "name": "Michael Zeising",
+    "email": "michael@zeising.online"
+  }],
   "autoload": {
     "psr-4": {
       "MichaelZeising\\Language\\": "src"
