@@ -7,8 +7,13 @@ namespace MichaelZeising\Language;
  * @return callable a function that returns the value at path of a given object
  */
 function property(string $path): callable {
-    return function ($element) use ($path) {
-        return $element[$path];                 // TODO support a.b
+    $pathElements = explode('.', $path);
+    return function ($element) use ($pathElements) {
+        $val = $element;
+        foreach ($pathElements as $pathElement) {
+            $val = $val[$pathElement];
+        }
+        return $val;
     };
 }
 
@@ -19,7 +24,7 @@ function property(string $path): callable {
 function matches(array $source): callable {
     return function ($object) use ($source) {
         foreach ($source as $key => $value) {
-            if ($object[$key] != $value) {      // TODO extract comparison
+            if ($object[$key] != $value) {      // TODO don't use fixed comparison
                 return false;
             }
         }

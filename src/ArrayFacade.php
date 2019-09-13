@@ -13,31 +13,37 @@ use Traversable;
 
 /**
  * Wrap PHP's built-in array functions, extend them and support a function, object-oriented style.
+ *
+ * https://github.com/voku/Arrayy and https://github.com/bocharsky-bw/Arrayzy lack keyBy(),
+ * groupBy(), map() etc.
+ * https://github.com/me-io/php-lodash and https://github.com/lodash-php/lodash-php lack the oo style
+ *
+ * IMPORTANT: empty() cannot be called on instances of ArrayFacade
  */
 class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorAggregate
 {
 
     /**
-     * @param self|array $collection
-     * @return self
+     * @param ArrayFacade|array $collection
+     * @return ArrayFacade
      */
-    static function of($collection): self
+    public static function of($collection): self
     {
         if (is_array($collection)) {
             return new self($collection);
         } else if ($collection instanceof self) {
             return new self($collection->elements);
         } else {
-            throw new Error('Unexpected type: ' . gettype($collection));
+            throw new Error('Expected array or ArrayFacade but got ' . gettype($collection));
         }
     }
 
-    static function ofElement($element): self
+    public static function ofElement($element): self
     {
         return new self([$element]);
     }
 
-    static function ofEmpty(): self
+    public static function ofEmpty(): self
     {
         return new self([]);
     }
@@ -48,7 +54,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
      * @param $collection
      * @return self
      */
-    static function ofReference(&$collection): self
+    public static function ofReference(&$collection): self
     {
         $c = new self(null);    // a bit strange but we need the constructor because call new self(...) a lot
         $c->setCollectionFromReference($collection);
@@ -79,12 +85,12 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
      * @param callable|string $iteratee function or 'property' shorthand
      * @return self
      */
-    function map($iteratee): self
+    public function map($iteratee): self
     {
         if (is_string($iteratee)) {
             $iteratee = property($iteratee);
         } else if (!is_callable($iteratee)) {
-            throw new Error();
+            throw new Error('Expected string or callable but got '.gettype($iteratee));
         }
         /*
          * $iteratee is invoked with (value, index|key), when array_keys(...) is passed to array_map()
@@ -98,7 +104,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
      * @param $iteratee callable|string function or property shorthand
      * @return self
      */
-    function flatMap($iteratee): self
+    public function flatMap($iteratee): self
     {
         if (is_string($iteratee)) {
             $iteratee = property($iteratee);
@@ -123,7 +129,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
      * @param $iteratee callable|string function or property shorthand
      * @return self
      */
-    function mapValues($iteratee): self
+    public function mapValues($iteratee): self
     {
         if (is_string($iteratee)) {
             $iteratee = property($iteratee);
@@ -142,19 +148,19 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     }
 
     /**
-     * @param self $other
+     * @param ArrayFacade $other
      * @return self
      */
-    function intersection(ArrayFacade $other): self
+    public function intersection(ArrayFacade $other): self
     {
         return new self(array_intersect($this->elements, $other->elements));
     }
 
     /**
-     * @param self $other
-     * @return self
+     * @param ArrayFacade $other
+     * @return ArrayFacade
      */
-    function difference(ArrayFacade $other): self
+    public function difference(ArrayFacade $other): self
     {
         /*
          * array_diff() alone would preserve the keys, which is a bit unexpected in most cases
@@ -163,11 +169,11 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     }
 
     /**
-     * @param self $other
+     * @param ArrayFacade $other
      * @param callable $comparator
-     * @return self
+     * @return ArrayFacade
      */
-    function differenceWith(ArrayFacade $other, callable $comparator): self
+    public function differenceWith(ArrayFacade $other, callable $comparator): self
     {
         // TODO do we need array_values() here?
         return new self(array_values(array_udiff($this->elements, $other->elements, $comparator)));
@@ -177,7 +183,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
      * @param callable $iteratee
      * @return $this
      */
-    function walk(callable $iteratee): self
+    public function walk(callable $iteratee): self
     {
         /*
          * array_walk() invokes $iteratee with (value, index|key)
@@ -189,7 +195,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     /**
      * @return self
      */
-    function uniq(): self
+    public function uniq(): self
     {
         $uniq = self::ofEmpty();
         foreach ($this->elements as $element) {
@@ -204,7 +210,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
      * @param callable|string $iteratee
      * @return self
      */
-    function uniqBy($iteratee): self
+    public function uniqBy($iteratee): self
     {
         if (is_string($iteratee)) {
             $iteratee = property($iteratee);
@@ -226,26 +232,40 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
 
     /**
      * @param string $glue
+     * @param string|null $lastGlue possibly different last glue
      * @return string
      */
-    function join(string $glue): string
+    public function join(string $glue, string $lastGlue = null): string
     {
-        return join($glue, $this->elements);
+        if ($lastGlue === null) {
+            return join($glue, $this->elements);
+        } else {
+            $s = '';
+            $n = count($this->elements);
+            for ($i = 0; $i < $n; $i++) {
+                $s .= $this->elements[$i];
+                if ($i === $n - 2) {
+                    $s .= $lastGlue;
+                } else if ($i < $n - 2) {
+                    $s .= $glue;
+                }
+            }
+            return $s;
+        }
     }
 
     /**
      * @param callable|array|string $predicate
      * @return Optional
-     * @see https://lodash.com/docs/4.17.11#find
      */
-    function find($predicate): Optional
+    public function find($predicate): Optional
     {
         if (is_array($predicate)) {
             $predicate = matches($predicate);
         } else if (is_string($predicate)) {
             $predicate = property($predicate);
         } else if (!is_callable($predicate)) {
-            throw new Error();
+            throw new Error('Expected array, string or callable but got '.gettype($predicate));
         }
         foreach ($this->elements as $element) {
             if ($predicate($element)) {
@@ -258,16 +278,15 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     /**
      * @param callable|array|string $predicate
      * @return bool
-     * @see https://lodash.com/docs/4.17.11#some
      */
-    function some($predicate): bool
+    public function some($predicate): bool
     {
         if (is_array($predicate)) {
             $predicate = matches($predicate);
         } else if (is_string($predicate)) {
             $predicate = property($predicate);
         } else if (!is_callable($predicate)) {
-            throw new Error();
+            throw new Error('Expected array, string or callable but got '.gettype($predicate));
         }
         foreach ($this->elements as $element) {
             if ($predicate($element)) {
@@ -278,22 +297,21 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     }
 
     /**
-     * Die Methode kann in PHP mit der list-Syntax aufgerufen werden:
+     * This may be called in PHP list syntax:
      *
      * list($positive, $negative) = $a->partition(...);
      *
      * @param callable|string|array $predicate
      * @return self
-     * @see https://lodash.com/docs/4.17.11#partition
      */
-    function partition($predicate): self
+    public function partition($predicate): self
     {
         if (is_array($predicate)) {
             $predicate = matches($predicate);
         } else if (is_string($predicate)) {
             $predicate = property($predicate);
         } else if (!is_callable($predicate)) {
-            throw new Error();
+            throw new Error('Expected array, string or callable but got '.gettype($predicate));
         }
 
         $positive = [];
@@ -311,9 +329,8 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     /**
      * @param callable|string ...$iteratees
      * @return self
-     * @see https://lodash.com/docs/4.17.11#sortBy
      */
-    function sortBy(...$iteratees): self
+    public function sortBy(...$iteratees): self
     {
         $iteratees = self::of($iteratees)->map(function ($it) {
             if (is_string($it)) {
@@ -321,7 +338,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
             } else if (is_callable($it)) {
                 return $it;
             }
-            throw new Error('Typ nicht zulässig für sortBy: ' . gettype($it));
+            throw new Error('Expected string or callable but got '.gettype($it));
         });
         $elements = (new ArrayObject($this->elements))->getArrayCopy();
         usort($elements, function ($l, $r) use ($iteratees) {
@@ -342,9 +359,8 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     /**
      * @param callable|array|string $predicate
      * @return self
-     * @see https://lodash.com/docs/4.17.11#filter
      */
-    function filter($predicate): self
+    public function filter($predicate): self
     {
         if (is_array($predicate)) {
             $predicate = matches($predicate);
@@ -354,7 +370,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
             throw new Error();
         }
         /*
-         * array_filter() behält die Schlüssel bei, was zu unerwarteten Ergebnissen führt
+         * array_filter() retains the keys which is not expected in most cases
          */
         return new self(array_values(array_filter($this->elements, $predicate)));
     }
@@ -366,35 +382,35 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
      * @param null|mixed $parentIdValue
      * @return self
      */
-    function groupByRecursive(string $idKey, string $parentIdKey, string $childrenKey = 'children', $parentIdValue = null): self
+    public function groupByRecursive(string $idKey, string $parentIdKey, string $childrenKey = 'children', $parentIdValue = null): self
     {
-        // direkte Kinder und andere trennen
+        // separate direct children from others
         list($children, $notChildren) = $this->partition([$parentIdKey => $parentIdValue]);
 
-        // direkte Kinder rekursiv behandeln
+        // handle direct children recursively
         $children->walk(function (&$child) use ($childrenKey, $notChildren, $parentIdKey, $idKey) {
             $child[$childrenKey] = $notChildren->groupByRecursive($idKey, $parentIdKey, $childrenKey, $child[$idKey]);
         });
 
-        // direkt Kinder zurückgeben
+        // return direct children
         return $children;
     }
 
     /**
-     * Liste in einen Baum umwandeln
+     * Convert list to tree
      *
-     * ACHTUNG: die Ebene sind wieder Objekte von ArrayFacade!
+     * IMPORTANT: resulting levels are instances of ArrayFacade
      *
      * @param string $idKey
      * @param string $parentIdKey
      * @param string $childrenKey
      * @return self
      */
-    function toTree(string $idKey, string $parentIdKey, string $childrenKey = 'children'): self
+    public function toTree(string $idKey, string $parentIdKey, string $childrenKey = 'children'): self
     {
-        // Wurzel(n) finden
+        // find root(s)
         $rootIds = $this->map($parentIdKey)->uniq()->difference($this->map($idKey)->uniq());
-        // Kinder rekursiv gruppieren
+        // group children recursively
         if ($rootIds->count() == 1) {
             return $this->groupByRecursive($idKey, $parentIdKey, $childrenKey, $rootIds->head()->get());
         } else if ($rootIds->count() > 1) {
@@ -402,15 +418,14 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
                 return $this->groupByRecursive($idKey, $parentIdKey, $childrenKey, $rootId);
             });
         } else {
-            throw new Error('Keine Wurzel(n)');
+            throw new Error('No roots found');
         }
     }
 
     /**
      * @return Optional
-     * @see https://lodash.com/docs/4.17.11#head
      */
-    function head(): Optional
+    public function head(): Optional
     {
         if ($this->isEmpty()) {
             return Optional::empty();
@@ -421,9 +436,8 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     /**
      * @param array $values
      * @return self
-     * @see https://lodash.com/docs/4.17.11#concat
      */
-    function concat(... $values): self
+    public function concat(... $values): self
     {
         $result = $this->elements;
         foreach ($values as $value) {
@@ -441,9 +455,8 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     /**
      * @param $value
      * @return bool
-     * @see https://lodash.com/docs/4.17.11#includes
      */
-    function includes($value): bool
+    public function includes($value): bool
     {
         return in_array($value, $this->elements, false);
     }
@@ -451,14 +464,13 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     /**
      * @param callable|string $iteratee
      * @return self
-     * @see https://lodash.com/docs/4.17.11#groupBy
      */
-    function groupBy($iteratee, $removeKey = false): self
+    public function groupBy($iteratee): self
     {
         if (is_string($iteratee)) {
             $iteratee = property($iteratee);
         } else if (!is_callable($iteratee)) {
-            throw new Error();
+            throw new Error('Expected string or callable but got '.gettype($iteratee));
         }
         $result = [];
         foreach ($this->elements as $element) {
@@ -477,9 +489,8 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
      *
      * @param callable|string $iteratee
      * @return ArrayFacade
-     * @see https://lodash.com/docs/4.17.11#keyBy
      */
-    function keyBy($iteratee): self
+    public function keyBy($iteratee): self
     {
         if (is_string($iteratee)) {
             $iteratee = property($iteratee);
@@ -495,31 +506,20 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
 
     /**
      * Whether a offset exists
-     * @link https://php.net/manual/en/arrayaccess.offsetexists.php
-     * @param mixed $offset <p>
-     * An offset to check for.
-     * </p>
-     * @return boolean true on success or false on failure.
-     * </p>
-     * <p>
-     * The return value will be casted to boolean if non-boolean was returned.
-     * @since 5.0.0
+     * @param mixed $offset
+     * @return boolean true on success or false on failure
      */
-    function offsetExists($offset): bool
+    public function offsetExists($offset): bool
     {
         return isset($this->elements[$offset]);
     }
 
     /**
      * Offset to retrieve
-     * @link https://php.net/manual/en/arrayaccess.offsetget.php
-     * @param mixed $offset <p>
-     * The offset to retrieve.
-     * </p>
-     * @return mixed Can return all value types.
-     * @since 5.0.0
+     * @param mixed $offset
+     * @return mixed Can return all value types
      */
-    function offsetGet($offset)
+    public function offsetGet($offset)
     {
         return $this->offsetExists($offset)
             ? $this->elements[$offset]
@@ -528,17 +528,10 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
 
     /**
      * Offset to set
-     * @link https://php.net/manual/en/arrayaccess.offsetset.php
-     * @param mixed $offset <p>
-     * The offset to assign the value to.
-     * </p>
-     * @param mixed $value <p>
-     * The value to set.
-     * </p>
-     * @return void
-     * @since 5.0.0
+     * @param mixed $offset The offset to assign the value to
+     * @param mixed $value The value to set
      */
-    function offsetSet($offset, $value): void
+    public function offsetSet($offset, $value): void
     {
         if (isset($offset)) {
             $this->elements[$offset] = $value;
@@ -547,42 +540,17 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
         }
     }
 
-    /**
-     * Offset to unset
-     * @link https://php.net/manual/en/arrayaccess.offsetunset.php
-     * @param mixed $offset <p>
-     * The offset to unset.
-     * </p>
-     * @return void
-     * @since 5.0.0
-     */
-    function offsetUnset($offset): void
+    public function offsetUnset($offset): void
     {
         unset($this->elements[$offset]);
     }
 
-    /**
-     * Specify data which should be serialized to JSON
-     * @link https://php.net/manual/en/jsonserializable.jsonserialize.php
-     * @return mixed data which can be serialized by <b>json_encode</b>,
-     * which is a value of any type other than a resource.
-     * @since 5.4.0
-     */
-    function jsonSerialize()
+    public function jsonSerialize()
     {
         return $this->elements;
     }
 
-    /**
-     * Count elements of an object
-     * @link https://php.net/manual/en/countable.count.php
-     * @return int The custom count as an integer.
-     * </p>
-     * <p>
-     * The return value is cast to an integer.
-     * @since 5.1.0
-     */
-    function count(): int
+    public function count(): int
     {
         return count($this->elements);
     }
@@ -590,19 +558,12 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     /**
      * @return bool
      */
-    function isEmpty(): bool
+    public function isEmpty(): bool
     {
         return $this->count() == 0;
     }
 
-    /**
-     * Retrieve an external iterator
-     * @link https://php.net/manual/en/iteratoraggregate.getiterator.php
-     * @return Traversable An instance of an object implementing <b>Iterator</b> or
-     * <b>Traversable</b>
-     * @since 5.0.0
-     */
-    function getIterator(): Traversable
+    public function getIterator(): Traversable
     {
         return new \ArrayIterator($this->elements);
     }
@@ -610,27 +571,43 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     /**
      * @param $key
      * @return bool
-     * @see https://docs.oracle.com/javase/8/docs/api/java/util/Map.html#containsKey-java.lang.Object-
      */
-    function containsKey($key): bool
+    public function containsKey($key): bool
     {
         return array_key_exists($key, $this->elements);
     }
 
-    function toArray(): array
+    /**
+     * @param ArrayFacade $other
+     * @return bool whether the wrapped elements equal the other's by identity (===)
+     */
+    public function equals(ArrayFacade $other): bool {
+        $n = $this->count();
+        if ($n !== $other->count()) {
+            return false;
+        }
+        while ($n > 0) {
+            if ($this->elements[--$n] !== $other->elements[$n]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public function toArray(): array
     {
         return $this->elements;
     }
 
     /**
-     * @return array Referenz auf die Elemente, um sie in-place verändern zu können
+     * @return array reference to the elements for manipulating them in-place
      */
-    function &toArrayReference()
+    public function &toArrayReference()
     {
         return $this->elements;
     }
 
-    function __toString(): string
+    public function __toString(): string
     {
         return json_encode($this, JSON_PRETTY_PRINT);
     }
