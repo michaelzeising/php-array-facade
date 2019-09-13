@@ -81,6 +81,14 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
         $this->elements = $elements;
     }
 
+    public function keys(): self {
+        return new self(array_keys($this->elements));
+    }
+
+    public function values(): self {
+        return new self(array_values($this->elements));
+    }
+
     /**
      * @param callable|string $iteratee function or 'property' shorthand
      * @return self
