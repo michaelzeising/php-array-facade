@@ -90,6 +90,18 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     }
 
     /**
+     * @return ArrayFacade key/value pairs from the wrapped elements
+     */
+    public function toPairs(): self {
+        // TODO is there a more efficient way?
+        $pairs = [];
+        foreach ($this->elements as $key => $value) {
+            $pairs[] = new self([$key, $value]);
+        }
+        return new self($pairs);
+    }
+
+    /**
      * @param callable|string $iteratee function or 'property' shorthand
      * @return self
      */
