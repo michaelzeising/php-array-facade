@@ -5,7 +5,7 @@ use PHPUnit\Framework\TestCase;
 
 class ArrayFacadeTest extends TestCase
 {
-    function testSortBy(): void
+    public function testSortBy(): void
     {
         $a = A::of([['id' => 2], ['id' => 1]]);
         $b = $a->sortBy('id');
@@ -13,7 +13,7 @@ class ArrayFacadeTest extends TestCase
         $this->assertEquals(1, $b[0]['id']);
     }
 
-    function testRef(): void
+    public function testRef(): void
     {
         $a = A::of([['id' => 1], ['id' => 2]]);
 
@@ -23,13 +23,15 @@ class ArrayFacadeTest extends TestCase
             $bi['x'] = 3;
         });
 
+        // TODO test
         echo 'a=' . $a . "\n";
         echo 'b=' . $b . "\n";
     }
 
-    function testMapValues(): void
+    public function testMapValues(): void
     {
         $a = A::of(['a' => 1, 'b' => 2]);
+        // TODO test
         echo $a->mapValues(
             function ($v, $k) {
                 echo "Call ${k} => ${v}\n";
@@ -38,14 +40,14 @@ class ArrayFacadeTest extends TestCase
         );
     }
 
-    function testEquals(): void
+    public function testEquals(): void
     {
         self::assertTrue(A::of([1, 2, 3])->equals(A::of([1, 2, 3])));
         self::assertTrue(A::of([['a' => 1], ['b' => 2]])->equals((A::of([['a' => 1], ['b' => 2]]))));
         self::assertFalse(A::of([1, 2, 3])->equals(A::of(['1', 2, 3])));
     }
 
-    function testPaths(): void
+    public function testPaths(): void
     {
         self::assertTrue(
             A::of([['a' => 1], ['a' => 2]])
@@ -59,5 +61,16 @@ class ArrayFacadeTest extends TestCase
             A::of([['a' => ['b' => ['c' => 1]]], ['a' => ['b' => ['c' => 2]]]])
                 ->map('a.b.c')
                 ->equals(A::of([1, 2])));
+    }
+
+    public function testToTree(): void {
+        $a = A::of([
+            ['id' => 1, 'parent_id' => null],
+            ['id' => 2, 'parent_id' => null],
+            ['id' => 3, 'parent_id' => 1],
+            ['id' => 4, 'parent_id' => 1],
+            ['id' => 5, 'parent_id' => 2]
+        ]);
+        print_r($a->toTree('id', 'parent_id', 'children'));
     }
 }

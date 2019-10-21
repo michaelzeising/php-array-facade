@@ -66,7 +66,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
      */
     private $elements;
 
-    private function __construct(array $elements)
+    private function __construct(array $elements = null)
     {
         $this->elements = $elements;
     }
@@ -81,18 +81,21 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
         $this->elements = $elements;
     }
 
-    public function keys(): self {
+    public function keys(): self
+    {
         return new self(array_keys($this->elements));
     }
 
-    public function values(): self {
+    public function values(): self
+    {
         return new self(array_values($this->elements));
     }
 
     /**
      * @return ArrayFacade key/value pairs from the wrapped elements
      */
-    public function toPairs(): self {
+    public function toPairs(): self
+    {
         // TODO is there a more efficient way?
         $pairs = [];
         foreach ($this->elements as $key => $value) {
@@ -110,12 +113,14 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
         if (is_string($iteratee)) {
             $iteratee = property($iteratee);
         } else if (!is_callable($iteratee)) {
-            throw new Error('Expected string or callable but got '.gettype($iteratee));
+            throw new Error('Expected string or callable but got ' . gettype($iteratee));
         }
         /*
          * $iteratee is invoked with (value, index|key), when array_keys(...) is passed to array_map()
          *
          * IMPORTANT: when passing more than one array to array_map(), the returned array always has sequential integer keys!
+         *
+         * FIXME raises "array_key_exists() expects parameter 2 to be array, null given" when iteratee doesn't return a value
          */
         return new self(array_map($iteratee, $this->elements, array_keys($this->elements)));
     }
@@ -285,7 +290,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
         } else if (is_string($predicate)) {
             $predicate = property($predicate);
         } else if (!is_callable($predicate)) {
-            throw new Error('Expected array, string or callable but got '.gettype($predicate));
+            throw new Error('Expected array, string or callable but got ' . gettype($predicate));
         }
         foreach ($this->elements as $element) {
             if ($predicate($element)) {
@@ -306,7 +311,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
         } else if (is_string($predicate)) {
             $predicate = property($predicate);
         } else if (!is_callable($predicate)) {
-            throw new Error('Expected array, string or callable but got '.gettype($predicate));
+            throw new Error('Expected array, string or callable but got ' . gettype($predicate));
         }
         foreach ($this->elements as $element) {
             if ($predicate($element)) {
@@ -331,7 +336,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
         } else if (is_string($predicate)) {
             $predicate = property($predicate);
         } else if (!is_callable($predicate)) {
-            throw new Error('Expected array, string or callable but got '.gettype($predicate));
+            throw new Error('Expected array, string or callable but got ' . gettype($predicate));
         }
 
         $positive = [];
@@ -358,7 +363,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
             } else if (is_callable($it)) {
                 return $it;
             }
-            throw new Error('Expected string or callable but got '.gettype($it));
+            throw new Error('Expected string or callable but got ' . gettype($it));
         });
         $elements = (new ArrayObject($this->elements))->getArrayCopy();
         usort($elements, function ($l, $r) use ($iteratees) {
@@ -432,8 +437,10 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
         $rootIds = $this->map($parentIdKey)->uniq()->difference($this->map($idKey)->uniq());
         // group children recursively
         if ($rootIds->count() == 1) {
-            return $this->groupByRecursive($idKey, $parentIdKey, $childrenKey, $rootIds->head()->get());
+            // single root found
+            return $this->groupByRecursive($idKey, $parentIdKey, $childrenKey, $rootIds->head());
         } else if ($rootIds->count() > 1) {
+            // multiple roots found
             return $rootIds->map(function ($rootId) use ($idKey, $parentIdKey, $childrenKey) {
                 return $this->groupByRecursive($idKey, $parentIdKey, $childrenKey, $rootId);
             });
@@ -443,14 +450,14 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     }
 
     /**
-     * @return Optional
+     * @return mixed|null first element if present
      */
-    public function head(): Optional
+    public function head()
     {
         if ($this->isEmpty()) {
-            return Optional::empty();
+            throw new \UnderflowException();
         }
-        return Optional::of($this->elements[0]);
+        return $this->elements[0];
     }
 
     /**
@@ -490,7 +497,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
         if (is_string($iteratee)) {
             $iteratee = property($iteratee);
         } else if (!is_callable($iteratee)) {
-            throw new Error('Expected string or callable but got '.gettype($iteratee));
+            throw new Error('Expected string or callable but got ' . gettype($iteratee));
         }
         $result = [];
         foreach ($this->elements as $element) {
@@ -601,7 +608,8 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
      * @param ArrayFacade $other
      * @return bool whether the wrapped elements equal the other's by identity (===)
      */
-    public function equals(ArrayFacade $other): bool {
+    public function equals(ArrayFacade $other): bool
+    {
         $n = $this->count();
         if ($n !== $other->count()) {
             return false;
