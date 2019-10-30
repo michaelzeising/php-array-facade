@@ -422,6 +422,51 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
     }
 
     /**
+     * Variant of groupBy where the key is not a property but an object (array)
+     *
+     * [
+     *   {id: o1, type: {id: t1}},
+     *   {id: o2, type: {id: t1}},
+     *   {id: o3, type: {id: t2}}
+     * ].groupByObject('type', 'id', 'objects')
+     * = [
+     *   {id: t1, objects: [ {id: o1}, {id: o2} ]},
+     *   {id: t2, objects: [ {id: o3} ]}
+     * ]
+     *
+     * @param string $keyObjectProperty property that references the key object
+     * @param string $keyObjectIdProperty identifying property of the key object
+     * @param string $valueProperty property that will contain the array of matching values
+     * @param bool $removeKeyObjectFromValues
+     * @return self
+     */
+    public function groupByObject(string $keyObjectProperty, string $keyObjectIdProperty, string $valueProperty,
+                                  bool $removeKeyObjectFromValues = true): self
+    {
+        list($itemsWithKey, $itemsWithoutKey) = $this->partition(function ($item) use ($keyObjectProperty) {
+            return !empty($item[$keyObjectProperty]);
+        });
+        $result = $itemsWithKey
+            ->map($keyObjectProperty)
+            ->uniqBy($keyObjectIdProperty)
+            ->walk(function (&$keyObject) use ($keyObjectProperty, $keyObjectIdProperty, $valueProperty, $removeKeyObjectFromValues) {
+                $values = $this->filter(function ($item) use ($keyObject, $keyObjectProperty, $keyObjectIdProperty) {
+                    return !empty($item[$keyObjectProperty]) && $item[$keyObjectProperty][$keyObjectIdProperty] == $keyObject[$keyObjectIdProperty];
+                });
+                if ($removeKeyObjectFromValues) {
+                    $values->walk(function (&$value) use ($keyObjectProperty) {
+                        unset($value[$keyObjectProperty]);
+                    });
+                }
+                $keyObject[$valueProperty] = $values;
+            });
+        if (!$itemsWithoutKey->isEmpty()) {
+            $result[] = [$keyObjectIdProperty => null, $valueProperty => $itemsWithoutKey];
+        }
+        return $result;
+    }
+
+    /**
      * Convert list to tree
      *
      * IMPORTANT: resulting levels are instances of ArrayFacade

@@ -73,4 +73,15 @@ class ArrayFacadeTest extends TestCase
         ]);
         print_r($a->toTree('id', 'parent_id', 'children'));
     }
+
+    public function testGroupByObject(): void {
+        $a = A::of([
+            ['id' => 'o1', 'type' => ['id' => 't1']],
+            ['id' => 'o2', 'type' => ['id' => 't1']],
+            ['id' => 'o3', 'type' => ['id' => 't2']],
+            ['id' => 'o4', 'type' => null],
+            ['id' => 'o5'],
+        ])->groupByObject('type', 'id', 'objects');
+        print_r($a);
+    }
 }
