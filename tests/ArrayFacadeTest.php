@@ -82,6 +82,6 @@ class ArrayFacadeTest extends TestCase
             ['id' => 'o4', 'type' => null],
             ['id' => 'o5'],
         ])->groupByObject('type', 'id', 'objects');
-        print_r($a);
+        echo(json_encode($a->jsonSerialize(), JSON_PRETTY_PRINT));
     }
 }

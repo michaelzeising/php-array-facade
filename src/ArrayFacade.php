@@ -19,6 +19,8 @@ use Traversable;
  * https://github.com/me-io/php-lodash and https://github.com/lodash-php/lodash-php lack the oo style
  *
  * IMPORTANT: empty() cannot be called on instances of ArrayFacade
+ *
+ * TODO sumBy()
  */
 class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorAggregate
 {
@@ -444,6 +446,7 @@ class ArrayFacade implements ArrayAccess, JsonSerializable, Countable, IteratorA
                                   bool $removeKeyObjectFromValues = true): self
     {
         list($itemsWithKey, $itemsWithoutKey) = $this->partition(function ($item) use ($keyObjectProperty) {
+            // FIXME so wird nicht 'obj1.obj2' unterstützt
             return !empty($item[$keyObjectProperty]);
         });
         $result = $itemsWithKey
